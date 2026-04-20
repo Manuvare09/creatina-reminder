@@ -1,0 +1,62 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm install --legacy-peer-deps
+
+      - name: Instalar Expo CLI
+        run: npm install -g @expo/cli
+
+      - name: Generar proyecto Xcode
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Instalar CocoaPods
+        run: |
+          cd ios
+          pod install
+
+      - name: Compilar app (sin firma)
+        run: |
+          cd ios
+          xcodebuild \
+            -workspace creatina-reminder.xcworkspace \
+            -scheme creatina-reminder \
+            -configuration Release \
+            -archivePath $PWD/build/creatina.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            | xcpretty || true
+
+      - name: Crear archivo IPA
+        run: |
+          mkdir -p Payload
+          cp -r ios/build/creatina.xcarchive/Products/Applications/*.app Payload/
+          zip -r creatina-reminder.ipa Payload/
+
+      - name: Subir IPA como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: creatina-reminder-ipa
+          path: creatina-reminder.ipa
+          retention-days: 30
