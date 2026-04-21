@@ -36,26 +36,24 @@ jobs:
       - name: Ver archivos iOS generados
         run: |
           echo "=== Contenido de ios/ ==="
-          ls ios/
-          echo "=== Schemes disponibles ==="
-          cd ios
-          WORKSPACE=$(ls *.xcworkspace 2>/dev/null | head -1)
-          echo "Workspace: $WORKSPACE"
-          xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null || true
+          ls -la ios/
+          echo "=== Workspaces ==="
+          find ios -maxdepth 1 -name "*.xcworkspace" -type d
+          echo "=== Schemes ==="
+          find ios -maxdepth 1 -name "*.xcworkspace" -type d -exec xcodebuild -workspace {} -list \; 2>/dev/null || true
 
       - name: Compilar app (sin firma)
         run: |
-          cd ios
-          WORKSPACE=$(ls *.xcworkspace | head -1)
+          WORKSPACE=$(find ios -maxdepth 1 -name "*.xcworkspace" -type d | head -1)
+          echo "Workspace encontrado: $WORKSPACE"
           SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null \
-            | awk '/Schemes:/,0' | grep -v "Schemes:" | head -1 | xargs)
-          echo "Workspace: $WORKSPACE"
-          echo "Scheme: $SCHEME"
+            | awk '/Schemes:/,/^$/' | grep -v "Schemes:" | grep -v "^$" | head -1 | xargs)
+          echo "Scheme encontrado: $SCHEME"
           xcodebuild \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration Release \
-            -archivePath "$PWD/build/creatina.xcarchive" \
+            -archivePath "$PWD/ios/build/creatina.xcarchive" \
             archive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
