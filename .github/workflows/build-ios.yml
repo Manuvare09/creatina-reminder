@@ -16,7 +16,7 @@ jobs:
       - name: Instalar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Instalar dependencias
@@ -33,25 +33,41 @@ jobs:
           cd ios
           pod install
 
+      - name: Ver archivos iOS generados
+        run: |
+          echo "=== Contenido de ios/ ==="
+          ls ios/
+          echo "=== Schemes disponibles ==="
+          cd ios
+          WORKSPACE=$(ls *.xcworkspace 2>/dev/null | head -1)
+          echo "Workspace: $WORKSPACE"
+          xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null || true
+
       - name: Compilar app (sin firma)
         run: |
           cd ios
+          WORKSPACE=$(ls *.xcworkspace | head -1)
+          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null \
+            | awk '/Schemes:/,0' | grep -v "Schemes:" | head -1 | xargs)
+          echo "Workspace: $WORKSPACE"
+          echo "Scheme: $SCHEME"
           xcodebuild \
-            -workspace creatina-reminder.xcworkspace \
-            -scheme creatina-reminder \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
             -configuration Release \
-            -archivePath $PWD/build/creatina.xcarchive \
+            -archivePath "$PWD/build/creatina.xcarchive" \
             archive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            ONLY_ACTIVE_ARCH=NO \
-            | xcpretty || true
+            ONLY_ACTIVE_ARCH=NO
 
       - name: Crear archivo IPA
         run: |
           mkdir -p Payload
-          cp -r ios/build/creatina.xcarchive/Products/Applications/*.app Payload/
+          APP_PATH=$(find ios/build/creatina.xcarchive/Products/Applications -name "*.app" | head -1)
+          echo "App encontrada: $APP_PATH"
+          cp -r "$APP_PATH" Payload/
           zip -r creatina-reminder.ipa Payload/
 
       - name: Subir IPA como artefacto
